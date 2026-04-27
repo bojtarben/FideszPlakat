@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fidesz Plakát Szerkesztő</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+      :root {
+        --bg: #15110b;
+        --panel: #20170f;
+        --panel-2: #2a1f14;
+        --border: #5a4128;
+        --text: #fff4e5;
+        --muted: #d8b891;
+        --orange: #ef7b10;
+        --orange-2: #c75c00;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at 15% 0%, #3d2610 0%, #120d08 58%);
+        color: var(--text);
+        font-family: "Open Sans", sans-serif;
+        overscroll-behavior: none;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 390px) 1fr;
+        min-height: 100vh;
+      }
+
+      .controls {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border-right: 1px solid var(--border);
+        padding: 20px 18px;
+        overflow: auto;
+      }
+
+      .brand {
+        margin: 0 0 10px;
+        color: #ffb35f;
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .lead {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0 0 18px;
+      }
+
+      .section {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        background: #1b140e;
+        margin-bottom: 12px;
+      }
+
+      .section h2 {
+        margin: 0 0 10px;
+        color: #ffbb70;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      input[type="file"],
+      input[type="range"] {
+        width: 100%;
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        border: 1px solid #8f6237;
+        background: #2f2116;
+        color: #fff;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+        font: inherit;
+      }
+
+      input[type="file"] {
+        margin-bottom: 6px;
+        color: var(--muted);
+      }
+
+      .hint {
+        margin: 0;
+        font-size: 12px;
+        color: #c9986c;
+      }
+
+      .range-row {
+        margin-bottom: 10px;
+      }
+
+      .range-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+
+      .btn-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: 11px 14px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: linear-gradient(180deg, #ff9a31, #ef7b10);
+        color: #2b1704;
+      }
+
+      .btn-secondary {
+        background: #3b2a1c;
+        color: #ffd4a6;
+        border: 1px solid #704f2d;
+      }
+
+      .preview {
+        padding: 18px;
+        display: grid;
+        place-items: center;
+      }
+
+      .poster-wrap {
+        width: min(92vw, 520px);
+        aspect-ratio: 1570 / 2301;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 30px 70px #00000099;
+        position: relative;
+        background: #1a1a1a;
+      }
+
+      .poster {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      .base-layer,
+      .overlay-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        pointer-events: none;
+      }
+
+      .person-zone {
+        position: absolute;
+        left: 6.69%;
+        top: 4.61%;
+        width: 86.69%;
+        height: 90.83%;
+        overflow: hidden;
+        cursor: grab;
+      }
+
+      .person-zone.dragging {
+        cursor: grabbing;
+      }
+
+      .person-image {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform-origin: center;
+        will-change: transform, width, height;
+      }
+
+      .overlay-layer {
+        left: 6.7%;
+        top: 5.3%;
+        width: 86.69%;
+        height: 90.83%;
+        object-fit: contain;
+        pointer-events: none;
+      }
+
+      .top-template-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.3;
+        pointer-events: none;
+      }
+
+      .text-surname,
+      .text-firstname,
+      .text-slogan,
+      .text-oevk,
+      .text-label {
+        position: absolute;
+        color: #ffffff;
+        white-space: nowrap;
+      }
+
+      .text-surname {
+        left: 7.5%;
+        top: 4%;
+        font-size: calc(60px * var(--poster-scale, 1));
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #111111;
+      }
+
+      .text-firstname {
+        left: 7.5%;
+        top: 14.1%;
+        font-size: calc(34px * var(--poster-scale, 1));
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: #111111;
+      }
+
+      .text-slogan {
+        right: 10.1%;
+        bottom: 5.8%;
+        font-size: calc(53px * var(--poster-scale, 1));
+        font-weight: 700;
+        letter-spacing: -0.031em;
+        line-height: 1;
+        text-align: right;
+        max-width: 56%;
+        white-space: normal;
+        overflow: visible;
+      }
+
+      .text-oevk {
+        left: 9%;
+        bottom: 5%;
+        font-size: calc(15px * var(--poster-scale, 1));
+        font-weight: 700;
+      }
+
+    .text-label {
+      left: 13.3%;
+      font-size: calc(6.05px * var(--poster-scale, 1));
+      font-weight: 700;
+      letter-spacing: -0.031em;
+    }
+
+      .text-label.line-1 {
+        bottom: 6.2%;
+      }
+
+      .text-label.line-2 {
+        bottom: 5.4%;
+      }
+
+      .stage-note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #f7bf80;
+      }
+
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .preview {
+          width: 100%;
+          overflow-x: hidden;
+          justify-items: center;
+          padding: 16px 10px;
+        }
+
+        .poster-wrap {
+          width: min(96vw, 520px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="controls">
+        <h1 class="brand">Fidesz Plakát Szerkesztő</h1>
+        <p class="lead">
+          Rétegezés: alap sablon, feltöltött ember, majd overlay. A fotó a megadott
+          zónán kívül nem látszik.
+        </p>
+
+        <section class="section">
+          <h2>Kép</h2>
+          <label for="photo-input">Tölts fel egy fotót</label>
+          <input id="photo-input" type="file" accept="image/*" />
+          <p class="hint">Nincs background remover: a képet kézzel tudod igazítani.</p>
+        </section>
+
+        <section class="section">
+          <h2>Igazítás</h2>
+
+          <div class="range-row">
+            <label for="zoom-range">Méret (zoom)</label>
+            <input id="zoom-range" type="range" min="70" max="250" value="100" />
+            <div class="range-meta"><span>70%</span><span id="zoom-value">100%</span></div>
+          </div>
+
+          <div class="range-row">
+            <label for="rotation-range">Forgatás</label>
+            <input id="rotation-range" type="range" min="-25" max="25" value="0" />
+            <div class="range-meta"><span>-25°</span><span id="rotation-value">0°</span></div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-secondary" id="reset-transform">Pozíció nullázása</button>
+            <button class="btn-primary" id="export-btn">PNG letöltés</button>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Szövegek</h2>
+
+          <label for="surname-input">Vezetéknév (bal felső)</label>
+          <input id="surname-input" type="text" value="Bukták" />
+
+          <label for="firstname-input">Keresztnév (alatta)</label>
+          <input id="firstname-input" type="text" value="Vége van" />
+
+          <label for="slogan-input">Fő felirat (jobb alsó)</label>
+          <input id="slogan-input" type="text" value="A BIZTOS VÁLASZTÁS" />
+
+          <label for="oevk-input">OEVK szám (bal alsó, kicsi)</label>
+          <input id="oevk-input" type="number" value="7" />
+
+          <label for="district-input">Bal alsó 1. sor</label>
+          <input id="district-input" type="text" value="VÁLASZTÓKERÜLET" />
+
+          <label for="city-input">Bal alsó 2. sor</label>
+          <input id="city-input" type="text" value="Budapest" />
+        </section>
+      </aside>
+
+      <main class="preview">
+        <div id="poster-wrap" class="poster-wrap">
+          <div class="poster" id="poster">
+            <img id="base-layer" class="base-layer" alt="Plakát alap" draggable="false" />
+
+            <div id="person-zone" class="person-zone" aria-label="Fotó igazítási zóna">
+              <img id="person-image" class="person-image" alt="Feltöltött személy" draggable="false" />
+            </div>
+
+            <img id="overlay-layer" class="overlay-layer" alt="Plakát overlay" draggable="false" />
+            <img id="top-template-layer" class="top-template-layer" alt="Ellenőrző overlay" draggable="false" />
+
+            <div id="text-surname" class="text-surname">Bukták</div>
+            <div id="text-firstname" class="text-firstname">Vége van</div>
+            <div id="text-slogan" class="text-slogan">A BIZTOS VÁLASZTÁS</div>
+            <div id="text-oevk" class="text-oevk">7.</div>
+            <div id="text-line-1" class="text-label line-1">VÁLASZTÓKERÜLET</div>
+            <div id="text-line-2" class="text-label line-2">BUDAPEST</div>
+          </div>
+        </div>
+        <p class="stage-note">Tipp: a képet a plakáton húzással mozgathatod.</p>
+      </main>
+    </div>
+
+    <script>
+      const BASE_W = 1570;
+      const BASE_H = 2301;
+
+      const ZONE_X = 105;
+      const ZONE_Y = 106;
+      const ZONE_W = 1361;
+      const ZONE_H = 2090;
+      const OVERLAY_OFFSET_Y = 10;
+      const EXPORT_FONT_FAMILY = '"Open Sans", sans-serif';
+      const PREVIEW_REF_WIDTH = 520;
+
+      const ASSET_BASE = encodeURI("assets/plakat/A BIZTOS VÁLASZTÁS-EGÉSZ-ALAP.png");
+      const ASSET_OVERLAY = encodeURI("assets/plakat/A BIZTOS VÁLASZTÁS-OVERLAY.png");
+      const ASSET_TOP_TEMPLATE = encodeURI("assets/plakat/A BIZTOS VÁLASZTÁS(5).png");
+
+      const $ = (id) => document.getElementById(id);
+
+      const elements = {
+        photoInput: $("photo-input"),
+        zoomRange: $("zoom-range"),
+        zoomValue: $("zoom-value"),
+        rotationRange: $("rotation-range"),
+        rotationValue: $("rotation-value"),
+        resetTransform: $("reset-transform"),
+        exportBtn: $("export-btn"),
+        posterWrap: $("poster-wrap"),
+        poster: $("poster"),
+        personZone: $("person-zone"),
+        personImage: $("person-image"),
+        baseLayer: $("base-layer"),
+        overlayLayer: $("overlay-layer"),
+        topTemplateLayer: $("top-template-layer"),
+        surnameInput: $("surname-input"),
+        firstnameInput: $("firstname-input"),
+        sloganInput: $("slogan-input"),
+        oevkInput: $("oevk-input"),
+        districtInput: $("district-input"),
+        cityInput: $("city-input"),
+        textSurname: $("text-surname"),
+        textFirstname: $("text-firstname"),
+        textSlogan: $("text-slogan"),
+        textOevk: $("text-oevk"),
+        textLine1: $("text-line-1"),
+        textLine2: $("text-line-2")
+      };
+
+      const state = {
+        imageObj: null,
+        imageLoaded: false,
+        imageNaturalWidth: 0,
+        imageNaturalHeight: 0,
+        zoom: 1,
+        rotationDeg: 0,
+        offsetX: 0,
+        offsetY: 0,
+        dragActive: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragStartOffsetX: 0,
+        dragStartOffsetY: 0
+      };
+
+      elements.baseLayer.src = ASSET_BASE;
+      elements.overlayLayer.src = ASSET_OVERLAY;
+      elements.topTemplateLayer.src = ASSET_TOP_TEMPLATE;
+
+      [elements.personImage, elements.baseLayer, elements.overlayLayer, elements.topTemplateLayer].forEach((imgEl) => {
+        if (!imgEl) return;
+        imgEl.addEventListener("dragstart", (e) => e.preventDefault());
+      });
+
+      function getPreviewScale() {
+        const zoneRect = elements.personZone.getBoundingClientRect();
+        return {
+          sx: zoneRect.width / ZONE_W,
+          sy: zoneRect.height / ZONE_H,
+          zoneW: zoneRect.width,
+          zoneH: zoneRect.height
+        };
+      }
+
+      function updateTextPreview() {
+        elements.textSurname.textContent = elements.surnameInput.value || " ";
+        elements.textFirstname.textContent = elements.firstnameInput.value || " ";
+        elements.textSlogan.textContent = (elements.sloganInput.value || " ").toUpperCase();
+        const oevkVal = String(elements.oevkInput.value || "").trim();
+        elements.textOevk.textContent = oevkVal ? `${oevkVal}.` : " ";
+        elements.textLine1.textContent = (elements.districtInput.value || " ").toUpperCase();
+        elements.textLine2.textContent = (elements.cityInput.value || " ").toUpperCase();
+      }
+
+      function renderPersonPreview() {
+        elements.zoomValue.textContent = `${Math.round(state.zoom * 100)}%`;
+        elements.rotationValue.textContent = `${state.rotationDeg.toFixed(1)}°`;
+
+        const posterRect = elements.baseLayer.getBoundingClientRect();
+        const previewScale = posterRect.width > 0 ? posterRect.width / PREVIEW_REF_WIDTH : 1;
+        document.documentElement.style.setProperty("--poster-scale", String(previewScale));
+
+        if (!state.imageLoaded || !state.imageObj) {
+          elements.personImage.style.display = "none";
+          return;
+        }
+
+        elements.personImage.style.display = "block";
+        const scale = getPreviewScale();
+
+        const baseCover = Math.max(ZONE_W / state.imageNaturalWidth, ZONE_H / state.imageNaturalHeight);
+        const drawW = state.imageNaturalWidth * baseCover * state.zoom * scale.sx;
+        const drawH = state.imageNaturalHeight * baseCover * state.zoom * scale.sy;
+        const px = state.offsetX * scale.sx;
+        const py = state.offsetY * scale.sy;
+
+        elements.personImage.style.width = `${drawW}px`;
+        elements.personImage.style.height = `${drawH}px`;
+        elements.personImage.style.transform = `translate(-50%, -50%) translate(${px}px, ${py}px) rotate(${state.rotationDeg}deg)`;
+      }
+
+      function loadUserImage(file) {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          state.imageObj = img;
+          state.imageLoaded = true;
+          state.imageNaturalWidth = img.naturalWidth;
+          state.imageNaturalHeight = img.naturalHeight;
+          state.zoom = 1;
+          state.rotationDeg = 0;
+          state.offsetX = 0;
+          state.offsetY = 0;
+
+          elements.zoomRange.value = "100";
+          elements.rotationRange.value = "0";
+          elements.personImage.src = url;
+          renderPersonPreview();
+        };
+        img.src = url;
+      }
+
+      function startDrag(clientX, clientY) {
+        if (!state.imageLoaded) return;
+        state.dragActive = true;
+        state.dragStartX = clientX;
+        state.dragStartY = clientY;
+        state.dragStartOffsetX = state.offsetX;
+        state.dragStartOffsetY = state.offsetY;
+        elements.personZone.classList.add("dragging");
+      }
+
+      function moveDrag(clientX, clientY) {
+        if (!state.dragActive) return;
+        const scale = getPreviewScale();
+        const dx = (clientX - state.dragStartX) / scale.sx;
+        const dy = (clientY - state.dragStartY) / scale.sy;
+        state.offsetX = state.dragStartOffsetX + dx;
+        state.offsetY = state.dragStartOffsetY + dy;
+        renderPersonPreview();
+      }
+
+      function endDrag() {
+        state.dragActive = false;
+        elements.personZone.classList.remove("dragging");
+      }
+
+      function drawTrackedText(ctx, text, x, y, options) {
+        const value = String(text || "");
+        if (!value) return;
+        const { size, weight, align, letterSpacingEm, fill } = options;
+        ctx.save();
+        ctx.font = `${weight} ${size}px ${EXPORT_FONT_FAMILY}`;
+        ctx.fillStyle = fill;
+        ctx.textBaseline = "alphabetic";
+
+        const spacingPx = letterSpacingEm * size;
+        const chars = value.split("");
+        const widths = chars.map((ch) => ctx.measureText(ch).width);
+        const totalWidth = widths.reduce((a, b) => a + b, 0) + spacingPx * Math.max(chars.length - 1, 0);
+
+        let cursor = x;
+        if (align === "right") cursor = x - totalWidth;
+        if (align === "center") cursor = x - totalWidth / 2;
+
+        chars.forEach((ch, i) => {
+          ctx.fillText(ch, cursor, y);
+          cursor += widths[i] + spacingPx;
+        });
+        ctx.restore();
+      }
+
+      function loadImageSource(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+      }
+
+      async function exportPoster() {
+        document.activeElement && typeof document.activeElement.blur === "function" && document.activeElement.blur();
+
+        if (window.html2canvas && elements.poster && elements.posterWrap) {
+          if (document.fonts && document.fonts.load) {
+            await Promise.all([
+              document.fonts.load('700 118px "Open Sans"'),
+              document.fonts.load('700 96px "Open Sans"'),
+              document.fonts.load('700 68px "Open Sans"')
+            ]);
+          }
+
+          if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+          }
+
+          const posterRect = elements.poster.getBoundingClientRect();
+          const scale = posterRect.width > 0 ? BASE_W / posterRect.width : 1;
+
+          const canvas = await window.html2canvas(elements.poster, {
+            backgroundColor: null,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            scale,
+            width: posterRect.width,
+            height: posterRect.height,
+            scrollX: 0,
+            scrollY: 0
+          });
+
+          const url = canvas.toDataURL("image/png");
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "fidesz-plakat.png";
+          a.click();
+          return;
+        }
+
+        const [base, overlay] = await Promise.all([
+          loadImageSource(ASSET_BASE),
+          loadImageSource(ASSET_OVERLAY)
+        ]);
+
+        if (document.fonts && document.fonts.load) {
+          await Promise.all([
+            document.fonts.load('700 118px "Open Sans"'),
+            document.fonts.load('700 96px "Open Sans"'),
+            document.fonts.load('700 68px "Open Sans"')
+          ]);
+        }
+
+        if (document.fonts && document.fonts.ready) {
+          await document.fonts.ready;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = BASE_W;
+        canvas.height = BASE_H;
+        const ctx = canvas.getContext("2d");
+
+        ctx.drawImage(base, 0, 0, BASE_W, BASE_H);
+
+        if (state.imageLoaded && state.imageObj) {
+          const image = state.imageObj;
+          const cover = Math.max(ZONE_W / state.imageNaturalWidth, ZONE_H / state.imageNaturalHeight);
+          const drawW = state.imageNaturalWidth * cover * state.zoom;
+          const drawH = state.imageNaturalHeight * cover * state.zoom;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(ZONE_X, ZONE_Y, ZONE_W, ZONE_H);
+          ctx.clip();
+          ctx.translate(ZONE_X + ZONE_W / 2 + state.offsetX, ZONE_Y + ZONE_H / 2 + state.offsetY);
+          ctx.rotate((state.rotationDeg * Math.PI) / 180);
+          ctx.drawImage(image, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
+        }
+
+        ctx.drawImage(overlay, ZONE_X, ZONE_Y + OVERLAY_OFFSET_Y, ZONE_W, ZONE_H);
+
+        const surname = elements.surnameInput.value || "";
+        const firstname = elements.firstnameInput.value || "";
+        const slogan = (elements.sloganInput.value || "").toUpperCase();
+        const oevkBase = String(elements.oevkInput.value || "").trim();
+        const oevk = oevkBase ? `${oevkBase}.` : "";
+        const district = (elements.districtInput.value || "").toUpperCase();
+        const city = (elements.cityInput.value || "").toUpperCase();
+
+        drawTrackedText(ctx, surname, 108, 244, {
+          size: 118,
+          weight: 800,
+          align: "left",
+          letterSpacingEm: -0.02,
+          fill: "#111111"
+        });
+
+        drawTrackedText(ctx, firstname, 108, 356, {
+          size: 68,
+          weight: 700,
+          align: "left",
+          letterSpacingEm: -0.02,
+          fill: "#111111"
+        });
+
+        drawTrackedText(ctx, slogan, 1458, 2070, {
+          size: 96,
+          weight: 800,
+          align: "right",
+          letterSpacingEm: -0.031,
+          fill: "#ffffff"
+        });
+
+        drawTrackedText(ctx, oevk, 108, 2122, {
+          size: 34,
+          weight: 700,
+          align: "left",
+          letterSpacingEm: -0.02,
+          fill: "#ffffff"
+        });
+
+        drawTrackedText(ctx, district, 108, 2162, {
+          size: 11.8,
+          weight: 700,
+          align: "left",
+          letterSpacingEm: -0.031,
+          fill: "#ffffff"
+        });
+
+        drawTrackedText(ctx, city, 108, 2186, {
+          size: 11.8,
+          weight: 700,
+          align: "left",
+          letterSpacingEm: -0.031,
+          fill: "#ffffff"
+        });
+
+        const blob = await new Promise((resolve, reject) => {
+          canvas.toBlob((result) => {
+            if (result) {
+              resolve(result);
+              return;
+            }
+            reject(new DOMException("A képexport biztonsági korlátozás miatt sikertelen.", "SecurityError"));
+          }, "image/png");
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "fidesz-plakat.png";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      elements.photoInput.addEventListener("change", (e) => {
+        loadUserImage(e.target.files && e.target.files[0]);
+      });
+
+      elements.zoomRange.addEventListener("input", () => {
+        state.zoom = Number(elements.zoomRange.value) / 100;
+        renderPersonPreview();
+      });
+
+      elements.rotationRange.addEventListener("input", () => {
+        state.rotationDeg = Number(elements.rotationRange.value);
+        renderPersonPreview();
+      });
+
+      elements.resetTransform.addEventListener("click", () => {
+        state.zoom = 1;
+        state.rotationDeg = 0;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        elements.zoomRange.value = "100";
+        elements.rotationRange.value = "0";
+        renderPersonPreview();
+      });
+
+      elements.exportBtn.addEventListener("click", () => {
+        exportPoster().catch((err) => {
+          console.error(err);
+          const message = String(err && err.message ? err.message : err);
+          if (message.toLowerCase().includes("insecure") || message.toLowerCase().includes("security")) {
+            alert("A böngésző biztonsági okból blokkolta az exportot. Nyisd meg az oldalt helyi szerverről (pl. http://localhost), ne közvetlen file:// útvonalról.");
+            return;
+          }
+          alert("Nem sikerult az export. Nezd meg a konzolt.");
+        });
+      });
+
+      [
+        elements.surnameInput,
+        elements.firstnameInput,
+        elements.sloganInput,
+        elements.oevkInput,
+        elements.districtInput,
+        elements.cityInput
+      ].forEach((input) => input.addEventListener("input", updateTextPreview));
+
+      elements.personZone.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        startDrag(e.clientX, e.clientY);
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        moveDrag(e.clientX, e.clientY);
+      });
+
+      window.addEventListener("mouseup", endDrag);
+
+      elements.personZone.addEventListener(
+        "touchstart",
+        (e) => {
+          const touch = e.touches[0];
+          if (!touch) return;
+          e.preventDefault();
+          startDrag(touch.clientX, touch.clientY);
+        },
+        { passive: false }
+      );
+
+      document.addEventListener("dragstart", (e) => {
+        if (e.target instanceof HTMLImageElement) {
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!state.dragActive) return;
+          const touch = e.touches[0];
+          if (!touch) return;
+          e.preventDefault();
+          moveDrag(touch.clientX, touch.clientY);
+        },
+        { passive: false }
+      );
+
+      window.addEventListener("touchend", endDrag);
+
+      window.addEventListener("resize", renderPersonPreview);
+
+      updateTextPreview();
+      renderPersonPreview();
+    </script>
+  </body>
+</html>
