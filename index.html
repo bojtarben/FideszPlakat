@@ -19,6 +19,21 @@
     />
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.175905474/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <script>
+      // iOS Safari sometimes fails to execute the MediaPipe bundle from a cross-origin CDN
+      // (CORS/cache quirks). Provide a same-origin fallback.
+      window.addEventListener('error', function (e) {
+        if (window.SelfieSegmentation) return;
+        var target = e && e.target;
+        if (!target || target.tagName !== 'SCRIPT') return;
+        if (!target.src || target.src.indexOf('@mediapipe/selfie_segmentation') === -1) return;
+
+        var fallback = document.createElement('script');
+        fallback.src = './vendor/mediapipe/selfie_segmentation.js';
+        fallback.defer = true;
+        document.head.appendChild(fallback);
+      }, true);
+    </script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
