@@ -18,6 +18,7 @@
       rel="stylesheet"
     />
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.175905474/selfie_segmentation.js" crossorigin="anonymous"></script>
     <style>
       :root {
         --bg: #15110b;
@@ -322,14 +323,16 @@
       <aside class="controls">
         <h1 class="brand">Fidesz Plakát Szerkesztő</h1>
         <p class="lead">
-          A képet hátterét vagy neked kell eltávolítanod, vagy egy fehér hátterű kép kell. nobg.space segít
+          Tölts fel egy fotót – a hátteret automatikusan eltávolítjuk a böngésződben, API-kulcs nélkül.
         </p>
 
         <section class="section">
           <h2>Kép</h2>
           <label for="photo-input">Tölts fel egy fotót</label>
           <input id="photo-input" type="file" accept="image/*" />
-          <p class="hint">Nincs background remover: a képet kézzel tudod igazítani.</p>
+          <p id="bg-status" class="hint" style="display:none"></p>
+          <button id="revert-btn" class="btn-secondary" style="display:none;margin-top:6px;width:100%">Eredeti kép visszaállítása</button>
+          <p class="hint">Az első futtatáskor a modell letöltődik (~4 MB). Ha a felismerés nem sikerül, az eredeti képet visszaállíthatod.</p>
         </section>
 
         <section class="section">
@@ -441,7 +444,9 @@
         textSlogan: $("text-slogan"),
         textOevk: $("text-oevk"),
         textLine1: $("text-line-1"),
-        textLine2: $("text-line-2")
+        textLine2: $("text-line-2"),
+        bgStatus: $("bg-status"),
+        revertBtn: $("revert-btn")
       };
 
       const state = {
@@ -457,7 +462,9 @@
         dragStartX: 0,
         dragStartY: 0,
         dragStartOffsetX: 0,
-        dragStartOffsetY: 0
+        dragStartOffsetY: 0,
+        originalUrl: null,
+        processedUrl: null
       };
 
       elements.baseLayer.src = ASSET_BASE;
@@ -515,26 +522,123 @@
         elements.personImage.style.transform = `translate(-50%, -50%) translate(${px}px, ${py}px) rotate(${state.rotationDeg}deg)`;
       }
 
-      function loadUserImage(file) {
-        if (!file) return;
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-          state.imageObj = img;
-          state.imageLoaded = true;
-          state.imageNaturalWidth = img.naturalWidth;
-          state.imageNaturalHeight = img.naturalHeight;
-          state.zoom = 1;
-          state.rotationDeg = 0;
-          state.offsetX = 0;
-          state.offsetY = 0;
+      let _segmenter = null;
+      function getSegmenter() {
+        if (!_segmenter) {
+          _segmenter = new SelfieSegmentation({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.175905474/${file}`
+          });
+          _segmenter.setOptions({ modelSelection: 1 });
+        }
+        return _segmenter;
+      }
 
-          elements.zoomRange.value = "100";
-          elements.rotationRange.value = "0";
-          elements.personImage.src = url;
-          renderPersonPreview();
-        };
-        img.src = url;
+      function removeBackground(imgElement) {
+        return new Promise((resolve, reject) => {
+          const seg = getSegmenter();
+          seg.onResults((results) => {
+            try {
+              const w = imgElement.naturalWidth;
+              const h = imgElement.naturalHeight;
+
+              const maskCanvas = document.createElement("canvas");
+              maskCanvas.width = w;
+              maskCanvas.height = h;
+              const maskCtx = maskCanvas.getContext("2d");
+              maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
+              const maskData = maskCtx.getImageData(0, 0, w, h).data;
+
+              const outCanvas = document.createElement("canvas");
+              outCanvas.width = w;
+              outCanvas.height = h;
+              const outCtx = outCanvas.getContext("2d");
+              outCtx.drawImage(imgElement, 0, 0);
+              const outData = outCtx.getImageData(0, 0, w, h);
+
+              for (let i = 0; i < outData.data.length; i += 4) {
+                outData.data[i + 3] = maskData[i];
+              }
+              outCtx.putImageData(outData, 0, 0);
+
+              outCanvas.toBlob((blob) => {
+                if (!blob) { reject(new Error("toBlob failed")); return; }
+                resolve(URL.createObjectURL(blob));
+              }, "image/png");
+            } catch (e) {
+              reject(e);
+            }
+          });
+          seg.send({ image: imgElement }).catch(reject);
+        });
+      }
+
+      function applyImageToState(img, url) {
+        state.imageObj = img;
+        state.imageLoaded = true;
+        state.imageNaturalWidth = img.naturalWidth;
+        state.imageNaturalHeight = img.naturalHeight;
+        elements.personImage.src = url;
+        renderPersonPreview();
+      }
+
+      async function loadUserImage(file) {
+        if (!file) return;
+
+        if (state.originalUrl) {
+          URL.revokeObjectURL(state.originalUrl);
+          state.originalUrl = null;
+        }
+        if (state.processedUrl) {
+          URL.revokeObjectURL(state.processedUrl);
+          state.processedUrl = null;
+        }
+
+        const rawUrl = URL.createObjectURL(file);
+        state.originalUrl = rawUrl;
+
+        const img = await new Promise((resolve, reject) => {
+          const i = new Image();
+          i.onload = () => resolve(i);
+          i.onerror = reject;
+          i.src = rawUrl;
+        });
+
+        state.zoom = 1;
+        state.rotationDeg = 0;
+        state.offsetX = 0;
+        state.offsetY = 0;
+        elements.zoomRange.value = "100";
+        elements.rotationRange.value = "0";
+        elements.revertBtn.style.display = "none";
+
+        applyImageToState(img, rawUrl);
+
+        if (typeof SelfieSegmentation === "undefined") {
+          elements.bgStatus.textContent = "Háttér eltávolítás nem elérhető (MediaPipe nem töltődött be).";
+          elements.bgStatus.style.display = "block";
+          return;
+        }
+
+        elements.bgStatus.textContent = "Háttér eltávolítása…";
+        elements.bgStatus.style.display = "block";
+
+        try {
+          const processedUrl = await removeBackground(img);
+          state.processedUrl = processedUrl;
+
+          const processedImg = new Image();
+          processedImg.onload = () => {
+            applyImageToState(processedImg, processedUrl);
+            elements.bgStatus.style.display = "none";
+            elements.revertBtn.style.display = "block";
+          };
+          processedImg.src = processedUrl;
+        } catch (err) {
+          console.error("Background removal failed:", err);
+          elements.bgStatus.textContent = "Háttér eltávolítása sikertelen – eredeti kép maradt.";
+          setTimeout(() => { elements.bgStatus.style.display = "none"; }, 4000);
+        }
       }
 
       function startDrag(clientX, clientY) {
@@ -752,7 +856,21 @@
       }
 
       elements.photoInput.addEventListener("change", (e) => {
-        loadUserImage(e.target.files && e.target.files[0]);
+        loadUserImage(e.target.files && e.target.files[0]).catch((err) => {
+          console.error("loadUserImage failed:", err);
+          elements.bgStatus.textContent = "Hiba a kép betöltésekor.";
+          elements.bgStatus.style.display = "block";
+        });
+      });
+
+      elements.revertBtn.addEventListener("click", () => {
+        if (!state.originalUrl) return;
+        const img = new Image();
+        img.onload = () => {
+          applyImageToState(img, state.originalUrl);
+          elements.revertBtn.style.display = "none";
+        };
+        img.src = state.originalUrl;
       });
 
       elements.zoomRange.addEventListener("input", () => {
