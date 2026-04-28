@@ -562,7 +562,7 @@
               outCtx.putImageData(outData, 0, 0);
 
               outCanvas.toBlob((blob) => {
-                if (!blob) { reject(new Error("toBlob failed")); return; }
+                if (!blob) { reject(new Error("Failed to create PNG blob from processed canvas")); return; }
                 resolve(URL.createObjectURL(blob));
               }, "image/png");
             } catch (e) {
@@ -615,12 +615,12 @@
         applyImageToState(img, rawUrl);
 
         if (typeof SelfieSegmentation === "undefined") {
-          elements.bgStatus.textContent = "Háttér eltávolítás nem elérhető (MediaPipe nem töltődött be).";
+          elements.bgStatus.textContent = "Háttéreltávolítás nem elérhető (MediaPipe nem töltődött be).";
           elements.bgStatus.style.display = "block";
           return;
         }
 
-        elements.bgStatus.textContent = "Háttér eltávolítása…";
+        elements.bgStatus.textContent = "Háttéreltávolítás folyamatban…";
         elements.bgStatus.style.display = "block";
 
         try {
@@ -636,7 +636,7 @@
           processedImg.src = processedUrl;
         } catch (err) {
           console.error("Background removal failed:", err);
-          elements.bgStatus.textContent = "Háttér eltávolítása sikertelen – eredeti kép maradt.";
+          elements.bgStatus.textContent = "Háttéreltávolítás sikertelen – eredeti kép maradt.";
           setTimeout(() => { elements.bgStatus.style.display = "none"; }, 4000);
         }
       }
