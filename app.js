@@ -117,55 +117,28 @@ function renderPersonPreview() {
   elements.personImage.style.transform = `translate(-50%, -50%) translate(${px}px, ${py}px) rotate(${state.rotationDeg}deg)`;
 }
 
-let _segmenter = null;
-function getSegmenter() {
-  if (!_segmenter) {
-    _segmenter = new SelfieSegmentation({
-      locateFile: (file) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.175905474/${file}`
-    });
-    _segmenter.setOptions({ modelSelection: 1 });
+async function removeBackground(imgElement) {
+  try {
+    elements.bgStatus.textContent = "Modell letöltése (imgly)...";
+    // Using esm.sh which automatically resolves bare imports like onnxruntime-web
+    const module = await import('https://esm.sh/@imgly/background-removal@1.7.0');
+    const imglyRemoveBackground = module.removeBackground;
+    
+    if (!imglyRemoveBackground) {
+      throw new Error("removeBackground függvény nem található a modulban");
+    }
+    
+    elements.bgStatus.textContent = "Háttéreltávolítás folyamatban...";
+    
+    // Pass image element directly - imgly handles canvas drawing internally
+    const imageBlob = await imglyRemoveBackground(imgElement.src);
+    return URL.createObjectURL(imageBlob);
+  } catch (err) {
+    console.error("imgly háttéreltávolítás hiba:", err);
+    elements.bgStatus.textContent = `Hiba: ${err.message || err.toString()}`;
+    setTimeout(() => { elements.bgStatus.style.display = "none"; }, 8000);
+    throw err;
   }
-  return _segmenter;
-}
-
-function removeBackground(imgElement) {
-  return new Promise((resolve, reject) => {
-    const seg = getSegmenter();
-    seg.onResults((results) => {
-      try {
-        const w = imgElement.naturalWidth;
-        const h = imgElement.naturalHeight;
-
-        const maskCanvas = document.createElement("canvas");
-        maskCanvas.width = w;
-        maskCanvas.height = h;
-        const maskCtx = maskCanvas.getContext("2d");
-        maskCtx.drawImage(results.segmentationMask, 0, 0, w, h);
-        const maskData = maskCtx.getImageData(0, 0, w, h).data;
-
-        const outCanvas = document.createElement("canvas");
-        outCanvas.width = w;
-        outCanvas.height = h;
-        const outCtx = outCanvas.getContext("2d");
-        outCtx.drawImage(imgElement, 0, 0);
-        const outData = outCtx.getImageData(0, 0, w, h);
-
-        for (let i = 0; i < outData.data.length; i += 4) {
-          outData.data[i + 3] = maskData[i];
-        }
-        outCtx.putImageData(outData, 0, 0);
-
-        outCanvas.toBlob((blob) => {
-          if (!blob) { reject(new Error("Failed to create PNG blob from processed canvas")); return; }
-          resolve(URL.createObjectURL(blob));
-        }, "image/png");
-      } catch (e) {
-        reject(e);
-      }
-    });
-    seg.send({ image: imgElement }).catch(reject);
-  });
 }
 
 function applyImageToState(img, url) {
@@ -199,34 +172,17 @@ async function loadUserImage(file) {
     i.src = rawUrl;
   });
 
-  state.zoom = 1;
+  state.zoom = 1.6;
   state.rotationDeg = 0;
   state.offsetX = 0;
-  state.offsetY = 0;
-  elements.zoomRange.value = "100";
+  state.offsetY = 500;
+  elements.zoomRange.value = "160";
   elements.rotationRange.value = "0";
   elements.revertBtn.style.display = "none";
 
   applyImageToState(img, rawUrl);
 
-  // MediaPipe can load late (or via fallback) on iOS Safari.
-  // Wait a bit before declaring background removal unavailable.
-  const waitForMediaPipe = async (timeoutMs = 8000) => {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      if (typeof SelfieSegmentation !== "undefined") return true;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    return false;
-  };
-
-  if (!(await waitForMediaPipe())) {
-    elements.bgStatus.textContent = "Háttéreltávolítás nem elérhető (MediaPipe nem töltődött be).";
-    elements.bgStatus.style.display = "block";
-    return;
-  }
-
-  elements.bgStatus.textContent = "Háttéreltávolítás folyamatban…";
+  elements.bgStatus.textContent = "Háttéreltávolítás inicializálása…";
   elements.bgStatus.style.display = "block";
 
   try {
@@ -242,8 +198,11 @@ async function loadUserImage(file) {
     processedImg.src = processedUrl;
   } catch (err) {
     console.error("Background removal failed:", err);
-    elements.bgStatus.textContent = "Háttéreltávolítás sikertelen – eredeti kép maradt.";
-    setTimeout(() => { elements.bgStatus.style.display = "none"; }, 4000);
+    // Don't overwrite the specific error message immediately
+    if (elements.bgStatus.textContent.indexOf("Hiba:") === -1) {
+      elements.bgStatus.textContent = "Háttéreltávolítás sikertelen – eredeti kép maradt.";
+      setTimeout(() => { elements.bgStatus.style.display = "none"; }, 4000);
+    }
   }
 }
 

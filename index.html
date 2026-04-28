@@ -18,22 +18,6 @@
       rel="stylesheet"
     />
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.175905474/selfie_segmentation.js" crossorigin="anonymous"></script>
-    <script>
-      // iOS Safari sometimes fails to execute the MediaPipe bundle from a cross-origin CDN
-      // (CORS/cache quirks). Provide a same-origin fallback.
-      window.addEventListener('error', function (e) {
-        if (window.SelfieSegmentation) return;
-        var target = e && e.target;
-        if (!target || target.tagName !== 'SCRIPT') return;
-        if (!target.src || target.src.indexOf('@mediapipe/selfie_segmentation') === -1) return;
-
-        var fallback = document.createElement('script');
-        fallback.src = './vendor/mediapipe/selfie_segmentation.js';
-        fallback.defer = true;
-        document.head.appendChild(fallback);
-      }, true);
-    </script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -50,7 +34,7 @@
           <input id="photo-input" type="file" accept="image/*" />
           <p id="bg-status" class="hint" style="display:none"></p>
           <button id="revert-btn" class="btn-secondary" style="display:none;margin-top:6px;width:100%">Eredeti kép visszaállítása</button>
-          <p class="hint">Az első futtatáskor a modell letöltődik (~4 MB). Ha a felismerés nem sikerül, az eredeti képet visszaállíthatod.</p>
+          <p class="hint">Ha a felismerés rosszul sikerül, az eredeti képet visszaállíthatod.</p>
         </section>
 
         <section class="section">
@@ -78,22 +62,22 @@
           <h2>Szövegek</h2>
 
           <label for="surname-input">Vezetéknév (bal felső)</label>
-          <input id="surname-input" type="text" value="Bukták" />
+          <input id="surname-input" type="text" value="Példa" />
 
           <label for="firstname-input">Keresztnév (alatta)</label>
-          <input id="firstname-input" type="text" value="Vége van" />
+          <input id="firstname-input" type="text" value="Viktor" />
 
           <label for="slogan-input">Fő felirat (jobb alsó)</label>
           <input id="slogan-input" type="text" value="A BIZTOS VÁLASZTÁS" />
 
           <label for="oevk-input">OEVK szám (bal alsó, kicsi)</label>
-          <input id="oevk-input" type="number" value="7" />
+          <input id="oevk-input" type="text" pattern="[0-9.]*" inputmode="numeric" value="01" />
 
           <label for="district-input">Bal alsó 1. sor</label>
           <input id="district-input" type="text" value="VÁLASZTÓKERÜLET" />
 
           <label for="city-input">Bal alsó 2. sor</label>
-          <input id="city-input" type="text" value="Budapest" />
+          <input id="city-input" type="text" value="Zedország" />
         </section>
       </aside>
 
@@ -108,12 +92,12 @@
 
             <img id="overlay-layer" class="overlay-layer" alt="Plakát overlay" draggable="false" />
 
-            <div id="text-surname" class="text-surname">Vége van</div>
-            <div id="text-firstname" class="text-firstname">Kicsi</div>
+            <div id="text-surname" class="text-surname">Példa</div>
+            <div id="text-firstname" class="text-firstname">Viktor</div>
             <div id="text-slogan" class="text-slogan">A BIZTOS VÁLASZTÁS</div>
-            <div id="text-oevk" class="text-oevk">67.</div>
+            <div id="text-oevk" class="text-oevk">00.</div>
             <div id="text-line-1" class="text-label line-1">VÁLASZTÓKERÜLET</div>
-            <div id="text-line-2" class="text-label line-2">ZEDORSZÁG</div>
+            <div id="text-line-2" class="text-label line-2">Zedország</div>
           </div>
         </div>
         <p class="stage-note">Tipp: a képet a plakáton húzással mozgathatod.</p>
