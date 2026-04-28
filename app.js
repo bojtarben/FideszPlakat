@@ -209,7 +209,18 @@ async function loadUserImage(file) {
 
   applyImageToState(img, rawUrl);
 
-  if (typeof SelfieSegmentation === "undefined") {
+  // MediaPipe can load late (or via fallback) on iOS Safari.
+  // Wait a bit before declaring background removal unavailable.
+  const waitForMediaPipe = async (timeoutMs = 8000) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (typeof SelfieSegmentation !== "undefined") return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
+  };
+
+  if (!(await waitForMediaPipe())) {
     elements.bgStatus.textContent = "Háttéreltávolítás nem elérhető (MediaPipe nem töltődött be).";
     elements.bgStatus.style.display = "block";
     return;
